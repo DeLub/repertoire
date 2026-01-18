@@ -308,6 +308,71 @@ def create_app(db_path: str | Path = "repertoire.db") -> Flask:
                 "message": "Error searching Discogs"
             }), 500
 
+    @app.route("/recording/<int:recording_id>")
+    def recording_detail(recording_id):
+        """Show detailed view of a single recording."""
+        recordings = db.get_recordings(limit=10000)
+        recording = next((r for r in recordings if r.id == recording_id), None)
+        
+        if not recording:
+            return "Recording not found", 404
+
+        # Get additional details
+        recording_data = {
+            "id": recording.id,
+            "title": recording.title,
+            "catalog_number": recording.catalog_number,
+            "release_year": recording.release_year,
+            "recording_type": recording.recording_type.value,
+            "in_library": recording.in_library,
+            "cover_url": recording.cover_url,
+            "ean": recording.ean,
+            "notes": recording.notes,
+            "discogs_url": recording.discogs_url if recording.discogs_id else None,
+            "composer_name": None,
+            "label_name": None,
+            "performers": [],
+        }
+
+        # Get composer name if work exists
+        if recording.work_id:
+            conn = db._get_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT c.name 
+                FROM composers c
+                JOIN works w ON w.composer_id = c.id
+                WHERE w.id = ?
+            """, (recording.work_id,))
+            row = cursor.fetchone()
+            if row:
+                recording_data["composer_name"] = row[0]
+            conn.close()
+
+        # Get label name
+        if recording.label_id:
+            conn = db._get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM labels WHERE id = ?", (recording.label_id,))
+            row = cursor.fetchone()
+            if row:
+                recording_data["label_name"] = row[0]
+            conn.close()
+
+        # Get performers
+        conn = db._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT p.name
+            FROM performers p
+            JOIN recording_performers rp ON rp.performer_id = p.id
+            WHERE rp.recording_id = ?
+        """, (recording.id,))
+        recording_data["performers"] = [row[0] for row in cursor.fetchall()]
+        conn.close()
+
+        return render_template("recording-detail.html", recording=recording_data)
+
     @app.route("/api/stats")
     def api_stats():
         """Get database statistics."""

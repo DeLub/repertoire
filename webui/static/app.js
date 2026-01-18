@@ -42,29 +42,31 @@ function displayRecordings(recordings) {
     }
 
     container.innerHTML = recordings.map(recording => `
-        <div class="recording-item">
-            <h3>${recording.title}</h3>
-            <div class="recording-info">
-                ${recording.catalog_number ? `
+        <a href="/recording/${recording.id}" style="text-decoration: none; color: inherit;">
+            <div class="recording-item">
+                <h3>${recording.title}</h3>
+                <div class="recording-info">
+                    ${recording.catalog_number ? `
+                        <div>
+                            <span class="recording-label">Catalog:</span> ${recording.catalog_number}
+                        </div>
+                    ` : ''}
+                    ${recording.release_year ? `
+                        <div>
+                            <span class="recording-label">Year:</span> ${recording.release_year}
+                        </div>
+                    ` : ''}
+                    ${recording.recording_type ? `
+                        <div>
+                            <span class="recording-label">Type:</span> ${recording.recording_type}
+                        </div>
+                    ` : ''}
                     <div>
-                        <span class="recording-label">Catalog:</span> ${recording.catalog_number}
+                        <span class="recording-label">Library:</span> ${recording.in_library ? '✓' : '✗'}
                     </div>
-                ` : ''}
-                ${recording.release_year ? `
-                    <div>
-                        <span class="recording-label">Year:</span> ${recording.release_year}
-                    </div>
-                ` : ''}
-                ${recording.recording_type ? `
-                    <div>
-                        <span class="recording-label">Type:</span> ${recording.recording_type}
-                    </div>
-                ` : ''}
-                <div>
-                    <span class="recording-label">Library:</span> ${recording.in_library ? '✓' : '✗'}
                 </div>
             </div>
-        </div>
+        </a>
     `).join('');
 }
 

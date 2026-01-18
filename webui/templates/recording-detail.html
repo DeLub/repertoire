@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recording Details - Repertoire</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .detail-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .detail-header {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: var(--darker-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+
+        .cover-art {
+            flex-shrink: 0;
+        }
+
+        .cover-art img {
+            width: 250px;
+            height: 250px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .cover-placeholder {
+            width: 250px;
+            height: 250px;
+            background-color: var(--dark-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3em;
+            color: var(--text-secondary);
+        }
+
+        .detail-info {
+            flex: 1;
+        }
+
+        .detail-info h1 {
+            color: var(--primary-color);
+            font-size: 1.8em;
+            margin-bottom: 10px;
+        }
+
+        .detail-info h2 {
+            color: var(--text-secondary);
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            font-weight: normal;
+        }
+
+        .metadata {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .metadata-item {
+            padding: 10px;
+            background-color: var(--dark-bg);
+            border-radius: 4px;
+        }
+
+        .metadata-label {
+            font-size: 0.85em;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .metadata-value {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .section {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: var(--darker-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+
+        .section h3 {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .performers-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .performer-chip {
+            padding: 8px 15px;
+            background-color: var(--dark-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            color: var(--text-primary);
+        }
+
+        .notes-content {
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .library-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            background-color: var(--primary-color);
+            color: var(--darker-bg);
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+
+        .external-link {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+
+        .external-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="detail-container">
+            <a href="/" class="back-link">← Back to Collection</a>
+
+            <div class="detail-header">
+                <div class="cover-art">
+                    {% if recording.cover_url %}
+                        <img src="{{ recording.cover_url }}" alt="Album cover">
+                    {% else %}
+                        <div class="cover-placeholder">🎼</div>
+                    {% endif %}
+                </div>
+
+                <div class="detail-info">
+                    <h1>{{ recording.title }}</h1>
+                    <h2>{{ recording.composer_name or 'Unknown Composer' }}</h2>
+
+                    {% if recording.in_library %}
+                        <span class="library-badge">✓ In Library</span>
+                    {% endif %}
+
+                    <div class="metadata" style="margin-top: 20px;">
+                        {% if recording.label_name %}
+                        <div class="metadata-item">
+                            <div class="metadata-label">Label</div>
+                            <div class="metadata-value">{{ recording.label_name }}</div>
+                        </div>
+                        {% endif %}
+
+                        {% if recording.catalog_number %}
+                        <div class="metadata-item">
+                            <div class="metadata-label">Catalog #</div>
+                            <div class="metadata-value">{{ recording.catalog_number }}</div>
+                        </div>
+                        {% endif %}
+
+                        {% if recording.release_year %}
+                        <div class="metadata-item">
+                            <div class="metadata-label">Release Year</div>
+                            <div class="metadata-value">{{ recording.release_year }}</div>
+                        </div>
+                        {% endif %}
+
+                        {% if recording.ean %}
+                        <div class="metadata-item">
+                            <div class="metadata-label">EAN</div>
+                            <div class="metadata-value">{{ recording.ean }}</div>
+                        </div>
+                        {% endif %}
+
+                        <div class="metadata-item">
+                            <div class="metadata-label">Type</div>
+                            <div class="metadata-value">{{ recording.recording_type }}</div>
+                        </div>
+
+                        {% if recording.discogs_url %}
+                        <div class="metadata-item">
+                            <div class="metadata-label">Discogs</div>
+                            <div class="metadata-value">
+                                <a href="{{ recording.discogs_url }}" target="_blank" class="external-link">
+                                    View on Discogs →
+                                </a>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {% if recording.performers and recording.performers|length > 0 %}
+            <div class="section">
+                <h3>Performers</h3>
+                <div class="performers-list">
+                    {% for performer in recording.performers %}
+                        <span class="performer-chip">{{ performer }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if recording.notes %}
+            <div class="section">
+                <h3>Notes</h3>
+                <div class="notes-content">{{ recording.notes }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
