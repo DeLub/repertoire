@@ -317,7 +317,37 @@ def create_app(db_path: str | Path = "repertoire.db") -> Flask:
         if not recording:
             return "Recording not found", 404
 
-        # Get additional details
+        # Get label name
+        label_name = None
+        if recording.label_id:
+            conn = db._get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM labels WHERE id = ?", (recording.label_id,))
+            row = cursor.fetchone()
+            if row:
+                label_name = row[0]
+            conn.close()
+
+        # Get composer names for works
+        works_with_composers = []
+        for work in recording.works:
+            composer_name = None
+            if work.composer_id:
+                conn = db._get_connection()
+                cursor = conn.cursor()
+                cursor.execute("SELECT name FROM composers WHERE id = ?", (work.composer_id,))
+                row = cursor.fetchone()
+                if row:
+                    composer_name = row[0]
+                conn.close()
+            
+            works_with_composers.append({
+                "title": work.title,
+                "composer": composer_name,
+                "catalog_number": work.catalog_number,
+                "duration_seconds": work.duration_seconds,
+            })
+
         recording_data = {
             "id": recording.id,
             "title": recording.title,
@@ -328,48 +358,12 @@ def create_app(db_path: str | Path = "repertoire.db") -> Flask:
             "cover_url": recording.cover_url,
             "ean": recording.ean,
             "notes": recording.notes,
-            "discogs_url": recording.discogs_url if recording.discogs_id else None,
-            "composer_name": None,
-            "label_name": None,
-            "performers": [],
+            "discogs_url": f"https://www.discogs.com/release/{recording.discogs_id}" if recording.discogs_id else None,
+            "label_name": label_name,
+            "performers": [p.name for p in recording.performers],
+            "works": works_with_composers,
+            "composer_name": works_with_composers[0]["composer"] if works_with_composers else None,
         }
-
-        # Get composer name if work exists
-        if recording.work_id:
-            conn = db._get_connection()
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT c.name 
-                FROM composers c
-                JOIN works w ON w.composer_id = c.id
-                WHERE w.id = ?
-            """, (recording.work_id,))
-            row = cursor.fetchone()
-            if row:
-                recording_data["composer_name"] = row[0]
-            conn.close()
-
-        # Get label name
-        if recording.label_id:
-            conn = db._get_connection()
-            cursor = conn.cursor()
-            cursor.execute("SELECT name FROM labels WHERE id = ?", (recording.label_id,))
-            row = cursor.fetchone()
-            if row:
-                recording_data["label_name"] = row[0]
-            conn.close()
-
-        # Get performers
-        conn = db._get_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT p.name
-            FROM performers p
-            JOIN recording_performers rp ON rp.performer_id = p.id
-            WHERE rp.recording_id = ?
-        """, (recording.id,))
-        recording_data["performers"] = [row[0] for row in cursor.fetchall()]
-        conn.close()
 
         return render_template("recording-detail.html", recording=recording_data)
 

@@ -224,6 +224,29 @@
                 </div>
             </div>
 
+            {% if recording.works and recording.works|length > 0 %}
+            <div class="section">
+                <h3>Works on this Album</h3>
+                <div style="display: grid; gap: 10px;">
+                    {% for work in recording.works %}
+                        <div style="padding: 12px; background-color: var(--dark-bg); border: 1px solid var(--border-color); border-radius: 4px;">
+                            <strong>{{ work.title }}</strong>
+                            {% if work.composer %}
+                                <div style="color: var(--text-secondary); font-size: 0.9em; margin-top: 4px;">
+                                    by {{ work.composer }}
+                                </div>
+                            {% endif %}
+                            {% if work.catalog_number %}
+                                <div style="color: var(--text-secondary); font-size: 0.85em;">
+                                    {{ work.catalog_number }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
             {% if recording.performers and recording.performers|length > 0 %}
             <div class="section">
                 <h3>Performers</h3>
