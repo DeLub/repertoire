@@ -47,6 +47,7 @@ class Database:
                 death_year INTEGER,
                 nationality TEXT,
                 biography TEXT,
+                musicbrainz_id TEXT UNIQUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -65,6 +66,7 @@ class Database:
                 opus TEXT,
                 duration_seconds INTEGER,
                 notes TEXT,
+                musicbrainz_id TEXT UNIQUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (composer_id) REFERENCES composers(id),

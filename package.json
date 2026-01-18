@@ -17,14 +17,24 @@
     {
       "name": "browse-collection",
       "title": "Browse Collection",
-      "description": "",
+      "description": "Open the web UI to browse your classical music collection",
       "mode": "no-view"
     },
     {
       "name": "scrape-musicalifeiten",
       "title": "Scrape musicalifeiten",
-      "description": "Scrapes a random page from musicalifeiten.",
+      "description": "Scrape a random page from musicalifeiten.nl and save to database",
       "mode": "view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "backendUrl",
+      "type": "textfield",
+      "required": true,
+      "title": "Backend URL",
+      "description": "The URL of the Repertoire backend server",
+      "default": "http://localhost:5000"
     }
   ],
   "dependencies": {

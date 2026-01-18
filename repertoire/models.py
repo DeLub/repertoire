@@ -24,6 +24,7 @@ class Composer:
     death_year: Optional[int] = None
     nationality: Optional[str] = None
     biography: Optional[str] = None
+    musicbrainz_id: Optional[str] = None
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
 
@@ -42,6 +43,7 @@ class Work:
     opus: Optional[str] = None
     duration_seconds: Optional[int] = None
     notes: Optional[str] = None
+    musicbrainz_id: Optional[str] = None
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
 
