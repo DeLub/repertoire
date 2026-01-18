@@ -1,0 +1,13 @@
+README.md
+pyproject.toml
+src/repertoire.egg-info/PKG-INFO
+src/repertoire.egg-info/SOURCES.txt
+src/repertoire.egg-info/dependency_links.txt
+src/repertoire.egg-info/entry_points.txt
+src/repertoire.egg-info/requires.txt
+src/repertoire.egg-info/top_level.txt
+tests/test_cli.py
+tests/test_database.py
+tests/test_musicbrainz.py
+tests/test_parser.py
+tests/test_scraper.py

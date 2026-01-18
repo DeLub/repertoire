@@ -1,0 +1,2 @@
+[console_scripts]
+repertoire = repertoire.cli:main

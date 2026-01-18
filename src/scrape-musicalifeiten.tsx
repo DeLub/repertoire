@@ -18,13 +18,14 @@ interface Recording {
 
 export default function Command() {
   const preferences = getPreferenceValues<Preferences>();
-  const backendUrl = preferences.backendUrl || "http://localhost:5000";
+  const backendUrl = preferences.backendUrl || "http://localhost:5173";
 
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   // Fetch a random page from musicalifeiten.nl
-  const { data: htmlData, isLoading: isFetching } = useFetch(
+  const { data: htmlData, isLoading: isFetching, error: fetchError } = useFetch(
     "https://www.musicalifeiten.nl/composers/by-name/a/",
     {
       method: "GET",
@@ -35,13 +36,14 @@ export default function Command() {
   );
 
   // Use Raycast AI to parse and enrich the fetched content
-  const { data: aiResponse, isLoading: isAiProcessing } = useAI(
+  const { data: aiResponse, isLoading: isAiProcessing, error: aiError } = useAI(
     `Extract classical music recording information from the following HTML content. 
-    Return a JSON array with objects containing: composer, work, performers (array), label, catalogNumber, releaseYear, and notes.
-    Only return valid JSON, no markdown or explanation.
+    Return ONLY a valid JSON array with objects containing these fields: composer, work, performers (as array of strings), label, catalogNumber, releaseYear (as number), and notes.
+    If no recordings are found, return an empty array [].
+    Do NOT include markdown, code blocks, or any explanation.
     
     HTML Content:
-    ${htmlData ? htmlData.substring(0, 2000) : "Loading..."}`
+    ${htmlData ? htmlData.substring(0, 3000) : "Loading..."}`
   );
 
   // Process AI response and save to backend
@@ -54,18 +56,25 @@ export default function Command() {
   const processAIResponse = async (response: string) => {
     try {
       setIsProcessing(true);
+      setErrorMessage("");
+
+      console.log("AI Response:", response);
 
       // Parse the AI response
       let parsedRecordings: Recording[] = [];
+      
       try {
+        // Try direct JSON parse first
         parsedRecordings = JSON.parse(response);
-      } catch {
+      } catch (parseError) {
         // If JSON parsing fails, try to extract JSON from the response
+        console.log("Direct parse failed, trying regex extraction");
         const jsonMatch = response.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
+          console.log("Found JSON with regex:", jsonMatch[0]);
           parsedRecordings = JSON.parse(jsonMatch[0]);
         } else {
-          throw new Error("Could not parse AI response as JSON");
+          throw new Error(`Could not parse AI response as JSON. Raw response: ${response.substring(0, 200)}`);
         }
       }
 
@@ -73,9 +82,22 @@ export default function Command() {
         parsedRecordings = [parsedRecordings];
       }
 
+      console.log("Parsed recordings:", parsedRecordings);
+
+      if (parsedRecordings.length === 0) {
+        setErrorMessage("AI did not extract any recordings from the page. This might mean:\n\n- The page structure changed\n- The content is not about classical music\n- Try running again for a different page");
+        await showToast({
+          style: Toast.Style.Failure,
+          title: "No recordings extracted",
+          message: "The AI couldn't find any classical music recordings on this page",
+        });
+        return;
+      }
+
       setRecordings(parsedRecordings);
 
       // Send to backend
+      console.log("Sending to backend:", backendUrl);
       const response_data = await fetch(`${backendUrl}/api/recordings`, {
         method: "POST",
         headers: {
@@ -87,7 +109,8 @@ export default function Command() {
       });
 
       if (!response_data.ok) {
-        throw new Error(`Backend error: ${response_data.statusText}`);
+        const errorText = await response_data.text();
+        throw new Error(`Backend error (${response_data.status}): ${errorText}`);
       }
 
       await showToast({
@@ -101,10 +124,14 @@ export default function Command() {
         open(`${backendUrl}`);
       }, 1000);
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Unknown error occurred";
+      console.error("Error in processAIResponse:", errorMsg);
+      setErrorMessage(errorMsg);
+      
       await showToast({
         style: Toast.Style.Failure,
         title: "Error",
-        message: error instanceof Error ? error.message : "Unknown error occurred",
+        message: errorMsg.substring(0, 100),
       });
     } finally {
       setIsProcessing(false);
@@ -115,12 +142,18 @@ export default function Command() {
 
   let markdown = "";
 
-  if (isFetching) {
+  if (fetchError) {
+    markdown = `## Fetch Error\n\nFailed to fetch from musicalifeiten.nl:\n\n\`\`\`\n${fetchError.message}\n\`\`\`\n\nMake sure you have internet connection and the website is accessible.`;
+  } else if (aiError) {
+    markdown = `## AI Processing Error\n\nRaycast AI encountered an error:\n\n\`\`\`\n${aiError.message}\n\`\`\`\n\nPlease try again.`;
+  } else if (isFetching) {
     markdown = "## Fetching page from musicalifeiten.nl...\n\nPlease wait...";
   } else if (isAiProcessing) {
-    markdown = "## Processing with Raycast AI...\n\nExtracting composer, work, and performer information...";
+    markdown = "## Processing with Raycast AI...\n\nExtracting composer, work, and performer information...\n\n*(This uses Raycast's built-in AI - make sure you have AI features enabled in Raycast)*";
   } else if (isProcessing) {
-    markdown = "## Saving to database...\n\nConnecting to backend...";
+    markdown = "## Saving to database...\n\nConnecting to backend at " + backendUrl + "...\n\nMake sure the backend is running with `python -m repertoire.cli server`";
+  } else if (errorMessage) {
+    markdown = `## Error Details\n\n${errorMessage}`;
   } else if (recordings.length > 0) {
     markdown = "## Recordings Extracted\n\n";
     markdown += `Found **${recordings.length}** recording(s):\n\n`;
@@ -147,7 +180,7 @@ export default function Command() {
 
     markdown += "\n---\n\n✅ Data saved to database! The web UI will open shortly...";
   } else {
-    markdown = "## Error\n\nNo recordings were extracted. Please try again.";
+    markdown = `## Troubleshooting\n\n**No recordings were extracted.**\n\nPossible issues:\n\n1. **Raycast AI not configured** - Make sure Raycast AI is enabled in Raycast preferences\n2. **Page content issue** - The fetched page might not contain classical music metadata\n3. **AI parsing issue** - Try running again for a different page\n4. **Network issue** - Check your internet connection\n\n---\n\n**Debug Info:**\n- Backend URL: ${backendUrl}\n- HTML fetched: ${htmlData ? "Yes (" + htmlData.length + " bytes)" : "No"}\n- AI response: ${aiResponse ? "Received" : "Waiting..."}\n\n**Troubleshooting:**\n\n1. Check browser console (View → Toggle Developer Tools) for errors\n2. Make sure backend is running: \`python -m repertoire.cli server --port 5173\`\n3. Check Raycast logs: Search "Develop Extension" → Select Repertoire`;
   }
 
   return <Detail isLoading={isLoading} markdown={markdown} />;

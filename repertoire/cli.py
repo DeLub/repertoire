@@ -92,8 +92,8 @@ def create_parser() -> argparse.ArgumentParser:
     server_parser.add_argument(
         "--port",
         type=int,
-        default=5000,
-        help="Server port",
+        default=5173,
+        help="Server port (default: 5173)",
     )
     server_parser.add_argument(
         "--debug",

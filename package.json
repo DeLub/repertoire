@@ -34,7 +34,7 @@
       "required": true,
       "title": "Backend URL",
       "description": "The URL of the Repertoire backend server",
-      "default": "http://localhost:5000"
+      "default": "http://localhost:5173"
     }
   ],
   "dependencies": {
