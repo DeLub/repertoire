@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repertoire - Classical Music Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎼 Repertoire</h1>
+            <p>Classical Music Manager</p>
+        </header>
+
+        <main>
+            <section class="stats">
+                <div class="stat-card">
+                    <h3>Total Recordings</h3>
+                    <p id="stat-recordings">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>In Library</h3>
+                    <p id="stat-library">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Composers</h3>
+                    <p id="stat-composers">-</p>
+                </div>
+            </section>
+
+            <section class="search">
+                <h2>Search</h2>
+                <div class="filters">
+                    <input type="text" id="composer-filter" placeholder="Composer..." class="filter-input">
+                    <input type="text" id="work-filter" placeholder="Work..." class="filter-input">
+                    <input type="text" id="label-filter" placeholder="Label..." class="filter-input">
+                    <button id="search-btn" class="btn btn-primary">Search</button>
+                </div>
+            </section>
+
+            <section class="results">
+                <h2>Results</h2>
+                <div id="recordings-list" class="recordings-list">
+                    <p class="empty-state">No recordings yet. Scrape from the Raycast extension!</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

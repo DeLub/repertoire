@@ -1,30 +1,14 @@
-# Node modules
-node_modules/
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# Build output
-dist/
+# dependencies
+/node_modules
 
-# Logs
-*.log
-npm-debug.log*
+# Raycast specific files
+raycast-env.d.ts
+.raycast-swift-build
+.swiftpm
+compiled_raycast_swift
+compiled_raycast_rust
 
-# Environment variables
-.env
-.env.local
-
-# OS files
+# misc
 .DS_Store
-.AppleDouble
-.LSOverride
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Testing
-coverage/
-
-# Misc
-.cache/
