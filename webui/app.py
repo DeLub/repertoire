@@ -7,6 +7,9 @@ from flask_cors import CORS
 
 from repertoire.database import Database
 from repertoire.models import Recording, RecordingType, Composer, Work, Performer, Label
+from repertoire.discogs import DiscogsClient
+from repertoire.musicbrainz import MusicBrainzIntegration
+import os
 
 
 def create_app(db_path: str | Path = "repertoire.db") -> Flask:
@@ -19,11 +22,22 @@ def create_app(db_path: str | Path = "repertoire.db") -> Flask:
     
     CORS(app)
     db = Database(db_path)
+    
+    # Initialize optional integrations
+    discogs_token = os.getenv("DISCOGS_TOKEN")
+    discogs_client = DiscogsClient(token=discogs_token) if discogs_token else None
+    
+    mb_client = MusicBrainzIntegration()
 
     @app.route("/")
     def index():
         """Serve main page."""
         return render_template("index.html")
+
+    @app.route("/add")
+    def add_recording_page():
+        """Serve add recording page."""
+        return render_template("add-recording.html")
 
     @app.route("/api/recordings", methods=["GET"])
     def api_recordings():
@@ -63,7 +77,7 @@ def create_app(db_path: str | Path = "repertoire.db") -> Flask:
 
     @app.route("/api/recordings", methods=["POST"])
     def api_add_recordings():
-        """Add new recordings from Raycast extension or API.
+        """Add new recordings from Raycast extension or manual entry.
         
         Expected JSON:
         {
@@ -89,8 +103,14 @@ def create_app(db_path: str | Path = "repertoire.db") -> Flask:
             added_count = 0
 
             for rec_data in recordings_data:
-                # Get or create composer
+                # Get or create composer (with MusicBrainz standardization)
                 composer_name = rec_data.get("composer", "Unknown")
+                
+                # Try to standardize with MusicBrainz
+                standardized_name = mb_client.standardize_composer_name(composer_name)
+                if standardized_name:
+                    composer_name = standardized_name
+
                 composer = db.get_composer(composer_name)
                 if not composer:
                     composer = Composer(name=composer_name)
@@ -110,6 +130,8 @@ def create_app(db_path: str | Path = "repertoire.db") -> Flask:
                     label_id=label.id if label else None,
                     notes=rec_data.get("notes"),
                     recording_type=RecordingType.STUDIO,
+                    cover_url=rec_data.get("coverUrl"),
+                    ean=rec_data.get("ean"),
                 )
 
                 # Add performers
@@ -132,6 +154,108 @@ def create_app(db_path: str | Path = "repertoire.db") -> Flask:
             return jsonify({
                 "error": str(e),
                 "message": "Error adding recordings"
+            }), 500
+
+    @app.route("/api/discogs/lookup", methods=["POST"])
+    def api_discogs_lookup():
+        """Lookup and enrich recording data from Discogs URL.
+        
+        Expected JSON:
+        {
+            "url": "https://www.discogs.com/release/123456"
+        }
+        """
+        if not discogs_client:
+            return jsonify({
+                "error": "Discogs token not configured",
+                "message": "Set DISCOGS_TOKEN environment variable"
+            }), 400
+
+        try:
+            data = request.get_json()
+            url = data.get("url", "").strip()
+
+            if not url:
+                return jsonify({"error": "Missing URL"}), 400
+
+            # Extract release ID from URL
+            release_id = DiscogsClient.extract_release_id(url)
+            if not release_id:
+                return jsonify({"error": "Invalid Discogs URL"}), 400
+
+            # Fetch release data
+            release = discogs_client.get_release(release_id)
+            if not release:
+                return jsonify({"error": "Release not found on Discogs"}), 404
+
+            # Return enriched data
+            return jsonify({
+                "success": True,
+                "release": {
+                    "title": release.title,
+                    "year": release.year,
+                    "label": release.label_name,
+                    "catalogNumber": release.catalog_number,
+                    "ean": release.ean,
+                    "coverUrl": release.cover_url,
+                    "country": release.country,
+                    "discogs_id": release.release_id,
+                }
+            }), 200
+
+        except Exception as e:
+            return jsonify({
+                "error": str(e),
+                "message": "Error looking up Discogs"
+            }), 500
+
+    @app.route("/api/discogs/search", methods=["POST"])
+    def api_discogs_search():
+        """Search Discogs for a recording.
+        
+        Expected JSON:
+        {
+            "catalog_number": "439-947-2",
+            "label": "Deutsche Grammophon",
+            "artist": "Ludwig van Beethoven"
+        }
+        """
+        if not discogs_client:
+            return jsonify({
+                "error": "Discogs token not configured",
+                "message": "Set DISCOGS_TOKEN environment variable"
+            }), 400
+
+        try:
+            data = request.get_json()
+            release = discogs_client.find_release(
+                catalog_number=data.get("catalog_number"),
+                label=data.get("label"),
+                artist=data.get("artist"),
+                query=data.get("query")
+            )
+
+            if not release:
+                return jsonify({"error": "No matches found"}), 404
+
+            return jsonify({
+                "success": True,
+                "release": {
+                    "title": release.title,
+                    "year": release.year,
+                    "label": release.label_name,
+                    "catalogNumber": release.catalog_number,
+                    "ean": release.ean,
+                    "coverUrl": release.cover_url,
+                    "country": release.country,
+                    "discogs_id": release.release_id,
+                }
+            }), 200
+
+        except Exception as e:
+            return jsonify({
+                "error": str(e),
+                "message": "Error searching Discogs"
             }), 500
 
     @app.route("/api/stats")

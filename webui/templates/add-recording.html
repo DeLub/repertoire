@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Recording - Repertoire</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .form-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .form-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: var(--darker-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+
+        .form-section h2 {
+            font-size: 1.1em;
+            margin-bottom: 15px;
+            color: var(--primary-color);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            background-color: var(--dark-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 0.95em;
+            font-family: inherit;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(29, 185, 84, 0.2);
+        }
+
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95em;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: var(--darker-bg);
+        }
+
+        .btn-primary:hover {
+            background-color: #1ed760;
+            transform: scale(1.02);
+        }
+
+        .btn-secondary {
+            background-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--text-secondary);
+        }
+
+        .divider {
+            text-align: center;
+            margin: 30px 0;
+            color: var(--text-secondary);
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            display: inline-block;
+            width: 35%;
+            height: 1px;
+            background-color: var(--border-color);
+            vertical-align: middle;
+        }
+
+        .divider::before {
+            margin-right: 10px;
+        }
+
+        .divider::after {
+            margin-left: 10px;
+        }
+
+        .performer-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 10px;
+        }
+
+        .performer-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            background-color: var(--dark-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            margin-bottom: 5px;
+        }
+
+        .performer-item button {
+            background-color: transparent;
+            border: none;
+            color: #ff6b6b;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .status-message {
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .status-message.success {
+            background-color: rgba(29, 185, 84, 0.2);
+            color: #1db954;
+            border: 1px solid #1db954;
+            display: block;
+        }
+
+        .status-message.error {
+            background-color: rgba(255, 107, 107, 0.2);
+            color: #ff6b6b;
+            border: 1px solid #ff6b6b;
+            display: block;
+        }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎼 Add Recording</h1>
+            <p>Add a new classical music recording to your collection</p>
+        </header>
+
+        <main>
+            <div class="form-container">
+                <div id="statusMessage" class="status-message"></div>
+
+                <!-- Method 1: Discogs URL -->
+                <div class="form-section">
+                    <h2>📎 Method 1: Discogs URL</h2>
+                    <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                        Paste a Discogs release URL to auto-fill metadata (covers, EAN, label info)
+                    </p>
+                    
+                    <div class="form-group">
+                        <label for="discogsUrl">Discogs Release URL</label>
+                        <input type="text" id="discogsUrl" placeholder="https://www.discogs.com/release/123456">
+                        <small style="color: var(--text-secondary); margin-top: 5px; display: block;">
+                            Example: https://www.discogs.com/release/439947
+                        </small>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="lookupDiscogs()" id="discogsLookupBtn">
+                        Look up on Discogs
+                    </button>
+                </div>
+
+                <div class="divider">or</div>
+
+                <!-- Method 2: Manual Form -->
+                <form id="manualForm" class="form-section">
+                    <h2>📝 Method 2: Manual Entry</h2>
+
+                    <!-- Composer & Work Section -->
+                    <div class="form-section" style="margin-left: -20px; margin-right: -20px; padding: 15px 20px;">
+                        <h3 style="font-size: 1em; margin-bottom: 15px;">Composer & Work</h3>
+
+                        <div class="form-group">
+                            <label for="composer">Composer *</label>
+                            <input type="text" id="composer" required placeholder="e.g., Ludwig van Beethoven">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="work">Work Title *</label>
+                            <input type="text" id="work" required placeholder="e.g., Symphony No. 5 in C minor">
+                        </div>
+                    </div>
+
+                    <!-- Recording Details -->
+                    <div class="form-section" style="margin-left: -20px; margin-right: -20px; padding: 15px 20px;">
+                        <h3 style="font-size: 1em; margin-bottom: 15px;">Recording Details</h3>
+
+                        <div class="form-group">
+                            <label for="label">Record Label</label>
+                            <input type="text" id="label" placeholder="e.g., Deutsche Grammophon">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="catalogNumber">Catalog Number</label>
+                            <input type="text" id="catalogNumber" placeholder="e.g., 439-947-2">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="releaseYear">Release Year</label>
+                            <input type="number" id="releaseYear" min="1900" max="2100" placeholder="e.g., 1992">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ean">EAN / Barcode</label>
+                            <input type="text" id="ean" placeholder="e.g., 028941394726">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="coverUrl">Cover Image URL</label>
+                            <input type="url" id="coverUrl" placeholder="https://example.com/cover.jpg">
+                        </div>
+                    </div>
+
+                    <!-- Performers -->
+                    <div class="form-section" style="margin-left: -20px; margin-right: -20px; padding: 15px 20px;">
+                        <h3 style="font-size: 1em; margin-bottom: 15px;">Performers</h3>
+
+                        <div class="form-group">
+                            <label for="performerInput">Add Performer</label>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="text" id="performerInput" placeholder="e.g., Berlin Philharmonic, Herbert von Karajan">
+                                <button type="button" class="btn btn-secondary" onclick="addPerformer()" style="flex: 0; padding: 10px 20px;">Add</button>
+                            </div>
+                        </div>
+
+                        <ul id="performerList" class="performer-list"></ul>
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="form-section" style="margin-left: -20px; margin-right: -20px; padding: 15px 20px;">
+                        <div class="form-group">
+                            <label for="notes">Notes</label>
+                            <textarea id="notes" placeholder="Any additional information about this recording..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="inLibrary">
+                                <input type="checkbox" id="inLibrary" style="width: auto; margin-right: 8px;">
+                                In My Library
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="button-group">
+                        <button type="submit" class="btn btn-primary">Add Recording</button>
+                        <button type="button" class="btn btn-secondary" onclick="resetForm()">Clear</button>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let performers = [];
+
+        async function lookupDiscogs() {
+            const url = document.getElementById('discogsUrl').value.trim();
+            if (!url) {
+                showStatus('Please enter a Discogs URL', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('discogsLookupBtn');
+            btn.disabled = true;
+            btn.classList.add('loading');
+            btn.textContent = 'Looking up...';
+
+            try {
+                const response = await fetch('/api/discogs/lookup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showStatus(data.message || 'Discogs lookup failed', 'error');
+                    return;
+                }
+
+                const release = data.release;
+                
+                // Fill form fields
+                document.getElementById('label').value = release.label || '';
+                document.getElementById('catalogNumber').value = release.catalogNumber || '';
+                document.getElementById('releaseYear').value = release.year || '';
+                document.getElementById('ean').value = release.ean || '';
+                document.getElementById('coverUrl').value = release.coverUrl || '';
+
+                showStatus('Discogs data loaded! Now complete the form below.', 'success');
+                
+                // Scroll to form
+                document.getElementById('composer').focus();
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('loading');
+                btn.textContent = 'Look up on Discogs';
+            }
+        }
+
+        function addPerformer() {
+            const input = document.getElementById('performerInput');
+            const name = input.value.trim();
+
+            if (!name) return;
+
+            performers.push(name);
+            input.value = '';
+            renderPerformers();
+        }
+
+        function removePerformer(index) {
+            performers.splice(index, 1);
+            renderPerformers();
+        }
+
+        function renderPerformers() {
+            const list = document.getElementById('performerList');
+            list.innerHTML = performers.map((p, i) => `
+                <li class="performer-item">
+                    <span>${p}</span>
+                    <button type="button" onclick="removePerformer(${i})">×</button>
+                </li>
+            `).join('');
+        }
+
+        function resetForm() {
+            document.getElementById('manualForm').reset();
+            performers = [];
+            renderPerformers();
+            document.getElementById('statusMessage').innerHTML = '';
+        }
+
+        function showStatus(message, type) {
+            const el = document.getElementById('statusMessage');
+            el.textContent = message;
+            el.className = `status-message ${type}`;
+        }
+
+        document.getElementById('manualForm').onsubmit = async (e) => {
+            e.preventDefault();
+
+            const composer = document.getElementById('composer').value.trim();
+            const work = document.getElementById('work').value.trim();
+
+            if (!composer || !work) {
+                showStatus('Composer and Work are required', 'error');
+                return;
+            }
+
+            const btn = e.target.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            btn.classList.add('loading');
+            btn.textContent = 'Adding...';
+
+            try {
+                const response = await fetch('/api/recordings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        recordings: [{
+                            composer,
+                            work,
+                            label: document.getElementById('label').value || undefined,
+                            catalogNumber: document.getElementById('catalogNumber').value || undefined,
+                            releaseYear: document.getElementById('releaseYear').value ? parseInt(document.getElementById('releaseYear').value) : undefined,
+                            ean: document.getElementById('ean').value || undefined,
+                            coverUrl: document.getElementById('coverUrl').value || undefined,
+                            performers,
+                            notes: document.getElementById('notes').value || undefined,
+                        }]
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showStatus(data.message || 'Failed to add recording', 'error');
+                    return;
+                }
+
+                showStatus(`✅ Added "${work}" by ${composer}`, 'success');
+                resetForm();
+
+                // Redirect after success
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 2000);
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('loading');
+                btn.textContent = 'Add Recording';
+            }
+        };
+
+        // Allow Enter key to add performer
+        document.getElementById('performerInput').onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addPerformer();
+            }
+        };
+    </script>
+</body>
+</html>
