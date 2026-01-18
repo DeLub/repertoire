@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sqlite3
 from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 
@@ -77,18 +78,20 @@ def create_app(db_path: str | Path = "repertoire.db") -> Flask:
 
     @app.route("/api/recordings", methods=["POST"])
     def api_add_recordings():
-        """Add new recordings from Raycast extension or manual entry.
+        """Add new recordings from form or API.
         
         Expected JSON:
         {
             "recordings": [
                 {
                     "composer": "Ludwig van Beethoven",
-                    "work": "Symphony No. 5",
+                    "work": "Symphony No. 5",  # Can be empty if multiple works on album
                     "performers": ["Berlin Philharmonic"],
                     "label": "Deutsche Grammophon",
                     "catalogNumber": "439-947-2",
                     "releaseYear": 1992,
+                    "ean": "...",
+                    "coverUrl": "...",
                     "notes": "..."
                 }
             ]
@@ -119,12 +122,38 @@ def create_app(db_path: str | Path = "repertoire.db") -> Flask:
                 # Get or create label
                 label = None
                 if rec_data.get("label"):
-                    label = Label(name=rec_data["label"])
-                    label = db.add_performer(label)  # Reuse performer method for labels
+                    label_name = rec_data["label"]
+                    # Check if label exists
+                    conn = db._get_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT id FROM labels WHERE name = ?", (label_name,))
+                    row = cursor.fetchone()
+                    conn.close()
+                    
+                    if row:
+                        label = Label(id=row[0], name=label_name)
+                    else:
+                        label = Label(name=label_name)
+                        conn = db._get_connection()
+                        cursor = conn.cursor()
+                        try:
+                            cursor.execute(
+                                "INSERT INTO labels (name) VALUES (?)",
+                                (label_name,)
+                            )
+                            label.id = cursor.lastrowid
+                            conn.commit()
+                        except sqlite3.IntegrityError:
+                            cursor.execute("SELECT id FROM labels WHERE name = ?", (label_name,))
+                            row = cursor.fetchone()
+                            if row:
+                                label.id = row[0]
+                        finally:
+                            conn.close()
 
-                # Create recording
+                # Create recording (album/release) - no work required yet
                 recording = Recording(
-                    title=rec_data.get("work", "Unknown Work"),
+                    title=rec_data.get("work") or rec_data.get("title") or "Unknown",
                     catalog_number=rec_data.get("catalogNumber"),
                     release_year=rec_data.get("releaseYear"),
                     label_id=label.id if label else None,
@@ -136,9 +165,10 @@ def create_app(db_path: str | Path = "repertoire.db") -> Flask:
 
                 # Add performers
                 for performer_name in rec_data.get("performers", []):
-                    performer = Performer(name=performer_name)
-                    performer = db.add_performer(performer)
-                    recording.performers.append(performer)
+                    if performer_name.strip():
+                        performer = Performer(name=performer_name)
+                        performer = db.add_performer(performer)
+                        recording.performers.append(performer)
 
                 # Save to database
                 db.add_recording(recording)
@@ -151,9 +181,11 @@ def create_app(db_path: str | Path = "repertoire.db") -> Flask:
             }), 201
 
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             return jsonify({
                 "error": str(e),
-                "message": "Error adding recordings"
+                "message": "Error adding recordings: " + str(e)
             }), 500
 
     @app.route("/api/discogs/lookup", methods=["POST"])
@@ -188,6 +220,13 @@ def create_app(db_path: str | Path = "repertoire.db") -> Flask:
             if not release:
                 return jsonify({"error": "Release not found on Discogs"}), 404
 
+            # Extract performers for pre-filling
+            performers = []
+            if release.artists:
+                performers.extend(release.artists.split("; "))
+            if release.extra_artists:
+                performers.extend(release.extra_artists)
+
             # Return enriched data
             return jsonify({
                 "success": True,
@@ -200,10 +239,21 @@ def create_app(db_path: str | Path = "repertoire.db") -> Flask:
                     "coverUrl": release.cover_url,
                     "country": release.country,
                     "discogs_id": release.release_id,
+                    "performers": performers,
+                    "tracklist": [
+                        {
+                            "position": t.get("position"),
+                            "title": t.get("title"),
+                            "duration": t.get("duration"),
+                        }
+                        for t in release.tracklist
+                    ] if release.tracklist else [],
                 }
             }), 200
 
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             return jsonify({
                 "error": str(e),
                 "message": "Error looking up Discogs"

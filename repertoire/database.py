@@ -218,7 +218,11 @@ class Database:
         return None
 
     def add_recording(self, recording: Recording) -> Recording:
-        """Add a new recording to the database."""
+        """Add a new recording to the database.
+        
+        A recording can exist without a specific work_id (for albums with multiple works,
+        or when work details are unknown). The work_id can be filled in later.
+        """
         conn = self._get_connection()
         cursor = conn.cursor()
 
@@ -265,6 +269,9 @@ class Database:
                 )
 
             conn.commit()
+        except sqlite3.IntegrityError as e:
+            conn.close()
+            raise ValueError(f"Database integrity error: {e}")
         finally:
             conn.close()
 
