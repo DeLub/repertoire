@@ -154,6 +154,25 @@ main {
     margin-bottom: 15px;
 }
 
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.results-header h2 {
+    margin: 0;
+    flex: 1;
+    min-width: 200px;
+}
+
+.results-header .btn {
+    white-space: nowrap;
+}
+
 .recordings-list {
     display: grid;
     gap: 15px;
