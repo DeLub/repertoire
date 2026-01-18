@@ -81,9 +81,8 @@ class Label:
 
 @dataclass
 class Recording:
-    """A recording of a musical work."""
+    """An album/recording with one or more musical works."""
     id: Optional[int] = None
-    work_id: Optional[int] = None
     title: str = ""
     recording_type: RecordingType = RecordingType.STUDIO
     label_id: Optional[int] = None
@@ -99,9 +98,9 @@ class Recording:
     in_library: bool = False
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
-    # Relationships (denormalized for convenience)
-    performers: list[Performer] = field(default_factory=list)
-    work: Optional[Work] = None
+    # Relationships
+    performers: list[Performer] = field(default_factory=list)  # Album performers (conductor, orchestra, etc)
+    works: list[Work] = field(default_factory=list)  # Works/compositions on this album (0 or more)
     label: Optional[Label] = None
 
     def __hash__(self) -> int:

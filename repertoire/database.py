@@ -108,7 +108,6 @@ class Database:
             """
             CREATE TABLE IF NOT EXISTS recordings (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                work_id INTEGER,
                 title TEXT NOT NULL,
                 recording_type TEXT DEFAULT 'studio',
                 label_id INTEGER,
@@ -124,9 +123,22 @@ class Database:
                 in_library BOOLEAN DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (work_id) REFERENCES works(id),
                 FOREIGN KEY (label_id) REFERENCES labels(id),
                 UNIQUE(title, catalog_number, label_id)
+            )
+            """
+        )
+
+        # Recording-Work junction table (supports multiple works per recording/album)
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS recording_works (
+                recording_id INTEGER NOT NULL,
+                work_id INTEGER NOT NULL,
+                track_number INTEGER,
+                PRIMARY KEY (recording_id, work_id),
+                FOREIGN KEY (recording_id) REFERENCES recordings(id) ON DELETE CASCADE,
+                FOREIGN KEY (work_id) REFERENCES works(id)
             )
             """
         )
@@ -218,26 +230,25 @@ class Database:
         return None
 
     def add_recording(self, recording: Recording) -> Recording:
-        """Add a new recording to the database.
+        """Add a new album/recording to the database.
         
-        A recording can exist without a specific work_id (for albums with multiple works,
-        or when work details are unknown). The work_id can be filled in later.
+        A recording is an album that can contain 0, 1, or more works.
         """
         conn = self._get_connection()
         cursor = conn.cursor()
 
         try:
+            # Insert the recording (album)
             cursor.execute(
                 """
                 INSERT INTO recordings (
-                    work_id, title, recording_type, label_id, catalog_number,
+                    title, recording_type, label_id, catalog_number,
                     ean, release_year, recording_year, duration_seconds,
                     cover_url, discogs_id, discogs_url, notes, in_library
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    recording.work_id,
                     recording.title,
                     recording.recording_type.value,
                     recording.label_id,
@@ -255,7 +266,7 @@ class Database:
             )
             recording.id = cursor.lastrowid
 
-            # Add performers
+            # Add performers (album-level performers like conductor, orchestra)
             for performer in recording.performers:
                 if performer.id is None:
                     performer = self.add_performer(performer)
@@ -268,6 +279,19 @@ class Database:
                     (recording.id, performer.id),
                 )
 
+            # Add works (compositions on this album)
+            for track_num, work in enumerate(recording.works, 1):
+                if work.id is None:
+                    work = self.add_work(work)
+                cursor.execute(
+                    """
+                    INSERT OR IGNORE INTO recording_works
+                    (recording_id, work_id, track_number)
+                    VALUES (?, ?, ?)
+                    """,
+                    (recording.id, work.id, track_num),
+                )
+
             conn.commit()
         except sqlite3.IntegrityError as e:
             conn.close()
@@ -276,6 +300,43 @@ class Database:
             conn.close()
 
         return recording
+
+    def add_work(self, work: Work) -> Work:
+        """Add or get a work (composition)."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute(
+                """
+                INSERT INTO works (composer_id, title, catalog_number, key, opus, duration_seconds, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    work.composer_id,
+                    work.title,
+                    work.catalog_number,
+                    work.key,
+                    work.opus,
+                    work.duration_seconds,
+                    work.notes,
+                ),
+            )
+            work.id = cursor.lastrowid
+            conn.commit()
+        except sqlite3.IntegrityError:
+            # Work already exists, fetch it
+            cursor.execute(
+                "SELECT id FROM works WHERE composer_id = ? AND title = ? AND catalog_number = ?",
+                (work.composer_id, work.title, work.catalog_number),
+            )
+            row = cursor.fetchone()
+            if row:
+                work.id = row[0]
+        finally:
+            conn.close()
+
+        return work
 
     def add_performer(self, performer: Performer) -> Performer:
         """Add or update a performer."""
@@ -325,19 +386,21 @@ class Database:
 
         if composer_name:
             query += """
-                AND work_id IN (
-                    SELECT id FROM works
-                    WHERE composer_id IN (
-                        SELECT id FROM composers WHERE name LIKE ?
-                    )
+                AND id IN (
+                    SELECT rw.recording_id FROM recording_works rw
+                    JOIN works w ON rw.work_id = w.id
+                    JOIN composers c ON w.composer_id = c.id
+                    WHERE c.name LIKE ?
                 )
             """
             params.append(f"%{composer_name}%")
 
         if work_title:
             query += """
-                AND work_id IN (
-                    SELECT id FROM works WHERE title LIKE ?
+                AND id IN (
+                    SELECT rw.recording_id FROM recording_works rw
+                    JOIN works w ON rw.work_id = w.id
+                    WHERE w.title LIKE ?
                 )
             """
             params.append(f"%{work_title}%")
@@ -359,32 +422,76 @@ class Database:
 
         cursor.execute(query, params)
         rows = cursor.fetchall()
-        conn.close()
 
         recordings = []
         for row in rows:
-            recordings.append(
-                Recording(
-                    id=row["id"],
-                    work_id=row["work_id"],
-                    title=row["title"],
-                    recording_type=RecordingType(row["recording_type"]),
-                    label_id=row["label_id"],
-                    catalog_number=row["catalog_number"],
-                    ean=row["ean"],
-                    release_year=row["release_year"],
-                    recording_year=row["recording_year"],
-                    duration_seconds=row["duration_seconds"],
-                    cover_url=row["cover_url"],
-                    discogs_id=row["discogs_id"],
-                    discogs_url=row["discogs_url"],
-                    notes=row["notes"],
-                    in_library=bool(row["in_library"]),
-                    created_at=datetime.fromisoformat(row["created_at"]),
-                    updated_at=datetime.fromisoformat(row["updated_at"]),
-                )
+            recording = Recording(
+                id=row["id"],
+                title=row["title"],
+                recording_type=RecordingType(row["recording_type"]),
+                label_id=row["label_id"],
+                catalog_number=row["catalog_number"],
+                ean=row["ean"],
+                release_year=row["release_year"],
+                recording_year=row["recording_year"],
+                duration_seconds=row["duration_seconds"],
+                cover_url=row["cover_url"],
+                discogs_id=row["discogs_id"],
+                discogs_url=row["discogs_url"],
+                notes=row["notes"],
+                in_library=bool(row["in_library"]),
+                created_at=datetime.fromisoformat(row["created_at"]),
+                updated_at=datetime.fromisoformat(row["updated_at"]),
             )
 
+            # Fetch performers for this recording
+            cursor.execute(
+                """
+                SELECT p.* FROM performers p
+                JOIN recording_performers rp ON rp.performer_id = p.id
+                WHERE rp.recording_id = ?
+                """,
+                (recording.id,),
+            )
+            for perf_row in cursor.fetchall():
+                recording.performers.append(
+                    Performer(
+                        id=perf_row["id"],
+                        name=perf_row["name"],
+                        performer_type=perf_row["performer_type"],
+                        instrument=perf_row["instrument"],
+                        biography=perf_row["biography"],
+                    )
+                )
+
+            # Fetch works for this recording
+            cursor.execute(
+                """
+                SELECT w.* FROM works w
+                JOIN recording_works rw ON rw.work_id = w.id
+                WHERE rw.recording_id = ?
+                ORDER BY rw.track_number
+                """,
+                (recording.id,),
+            )
+            for work_row in cursor.fetchall():
+                recording.works.append(
+                    Work(
+                        id=work_row["id"],
+                        composer_id=work_row["composer_id"],
+                        title=work_row["title"],
+                        catalog_number=work_row["catalog_number"],
+                        key=work_row["key"],
+                        opus=work_row["opus"],
+                        duration_seconds=work_row["duration_seconds"],
+                        notes=work_row["notes"],
+                        musicbrainz_id=work_row.get("musicbrainz_id"),
+                    )
+                )
+
+            recordings.append(recording)
+
+        conn.close()
         return recordings
 
     def save_scraped_page(self, page: ScrapePage) -> ScrapePage:
