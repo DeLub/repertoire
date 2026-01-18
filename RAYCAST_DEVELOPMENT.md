@@ -33,6 +33,8 @@ The extension uses preferences to connect to the backend. Set these in Raycast e
   - Must point to your running Flask backend
   - Used by both commands to communicate with the server
 
+**Note:** Raycast AI is built-in to Raycast and accessed via the extension's `useAI()` hook. No API key is required!
+
 ## Commands
 
 ### 1. Scrape musicalifeiten
@@ -100,6 +102,16 @@ Simple command that opens the web UI in your browser. Lets you:
 
 ## How the Integration Works
 
+### Why No API Key is Needed
+
+Raycast AI is a feature built directly into the Raycast app itself. When you use the `useAI()` hook in an extension, it:
+1. Uses your existing Raycast account
+2. Doesn't require a separate API key
+3. Works offline with local models (if Raycast Pro is enabled)
+4. Handles authentication automatically
+
+Think of it like how ChatGPT integration works in Raycast - the AI capability is part of Raycast itself, not a separate service.
+
 ### Step 1: Fetch HTML
 The extension fetches a random page from musicalifeiten.nl:
 ```typescript
@@ -107,13 +119,15 @@ const { data: htmlData } = useFetch("https://www.musicalifeiten.nl/composers/by-
 ```
 
 ### Step 2: Process with Raycast AI
-The HTML is sent to Raycast AI for processing:
+The HTML is sent to Raycast AI using the built-in `useAI()` hook:
 ```typescript
 const { data: aiResponse } = useAI(`
   Extract classical music recording information...
   ${htmlData}
 `);
 ```
+
+This uses your Raycast account - no separate API key needed!
 
 ### Step 3: Parse AI Response
 The JSON response is parsed and validated:

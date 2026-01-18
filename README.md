@@ -22,6 +22,7 @@ A full-stack application that lets you scrape, organize, and explore your classi
 - Python 3.9+
 - Node.js 16+
 - Raycast installed (for the extension)
+- **No API keys required** - Raycast AI is built-in to Raycast itself
 
 ### Backend Setup
 
@@ -36,14 +37,15 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 ```
 
-**3. Create environment file**
+**3. Create environment file (optional)**
 ```bash
 cat > .env << EOF
 REPERTOIRE_DB_PATH=repertoire.db
-RAYCAST_AI_KEY=your_raycast_key_here
-DISCOGS_TOKEN=your_discogs_token_here
+DISCOGS_TOKEN=your_discogs_token_here  # Optional, for cover art
 EOF
 ```
+
+**Note:** No RAYCAST_AI_KEY needed - Raycast AI is handled entirely by the extension itself!
 
 ### Running the Application
 

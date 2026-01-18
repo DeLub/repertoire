@@ -1,45 +1,44 @@
-"""Integration with Raycast AI for metadata enrichment."""
+"""Integration with Raycast AI for metadata enrichment.
+
+Note: Raycast AI is actually processed in the Raycast extension itself using 
+the useAI hook. This module is a placeholder for any future AI-related backend 
+functionality, but the actual scraping/parsing happens client-side in the extension.
+"""
 from __future__ import annotations
 
-import os
 from typing import Optional, Any
-import json
 
 
 class RaycastAIIntegration:
-    """Interface for Raycast AI integration."""
+    """Placeholder for Raycast AI integration.
+    
+    In the current architecture:
+    1. Raycast extension uses useAI() hook directly (no backend needed)
+    2. Extension sends enriched data to backend API
+    3. Backend stores the data in SQLite
+    
+    This class may be useful for future features like:
+    - Re-processing existing data with AI
+    - Batch AI enrichment from CLI
+    - Storing AI-generated descriptions
+    """
 
-    def __init__(self, api_key: Optional[str] = None):
-        """Initialize Raycast AI integration.
-        
-        Args:
-            api_key: Raycast AI API key. If not provided, will attempt to read from environment.
-        """
-        self.api_key = api_key or os.getenv("RAYCAST_AI_KEY")
-        if not self.api_key:
-            raise ValueError(
-                "RAYCAST_AI_KEY environment variable not set. "
-                "Set it or pass api_key parameter."
-            )
+    def __init__(self):
+        """Initialize placeholder AI integration."""
+        pass
 
     def enrich_recording_metadata(self, text: str) -> dict[str, Any]:
-        """Use Raycast AI to extract structured metadata from free text.
+        """Placeholder for enriching recording metadata.
         
-        This will be called from the Raycast extension when scraping a page.
-        The extension has access to Raycast AI, so the actual enrichment
-        happens there and returns the result to the backend.
+        In production, this would be called from the backend to re-process
+        existing data or handle batch operations.
         
         Args:
             text: Unstructured text about a recording
             
         Returns:
-            Dictionary with structured metadata (composer, work, performers, label, etc.)
+            Dictionary with structured metadata
         """
-        # This is a placeholder. In production, the Raycast extension will:
-        # 1. Call Raycast AI directly
-        # 2. Send the enriched data to the backend API
-        # 3. The backend stores it
-        
         return {
             "composer": None,
             "work": None,
@@ -50,27 +49,3 @@ class RaycastAIIntegration:
             "notes": text,
         }
 
-    def summarize_text(self, text: str) -> str:
-        """Use Raycast AI to summarize text.
-        
-        Args:
-            text: Text to summarize
-            
-        Returns:
-            Summarized text
-        """
-        # Placeholder - actual implementation will be in Raycast extension
-        return text[:200] + "..." if len(text) > 200 else text
-
-    def extract_composers(self, text: str) -> list[str]:
-        """Extract composer names from text using Raycast AI.
-        
-        Args:
-            text: Text containing composer information
-            
-        Returns:
-            List of composer names
-        """
-        # Placeholder - will be enhanced with actual AI
-        # For now, return empty list
-        return []
